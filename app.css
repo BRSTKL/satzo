@@ -15,3 +15,4 @@ html, body { height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-co
   .cap .line { font-size: 23px; }
   .hero h1 { font-size: 30px; }
 }
+.hero .btn.main { flex: none; }
