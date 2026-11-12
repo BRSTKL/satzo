@@ -7,12 +7,27 @@
   const read = k => { try { const v = localStorage.getItem(LS + k); return v == null ? undefined : JSON.parse(v); } catch (e) { return undefined; } };
   let DATA = null;
   const loadData = () => DATA ? Promise.resolve(DATA) : fetch('data.json', { cache: 'no-cache' }).then(r => r.json()).then(j => (DATA = { clips: j.clips || [], subs: j.subs || {} })).catch(() => (DATA = { clips: [], subs: {} }));
+  // Çeviri: birden fazla kaynak sırayla denenir (biri telefonda engellenirse diğeri devreye girer)
   const trCache = new Map();
-  function translate(m) {
+  window.__satzoTrErr = [];
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  const getJSON = u => withTimeout(fetch(u, { credentials: 'omit', referrerPolicy: 'no-referrer' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }), 7000);
+  const q = s => encodeURIComponent(s);
+  const SOURCES = [
+    m => getJSON('https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + q(m.sl) + '&tl=' + q(m.tl) + '&dt=t&dj=1&q=' + q(m.text)).then(j => (j.sentences || []).map(x => x.trans || '').join('')),
+    m => getJSON('https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=' + q(m.sl) + '&tl=' + q(m.tl) + '&q=' + q(m.text)).then(j => Array.isArray(j) ? (Array.isArray(j[0]) ? j[0][0] : j[0]) : ''),
+    m => getJSON('https://api.mymemory.translated.net/get?q=' + q(m.text) + '&langpair=' + q(m.sl + '|' + m.tl)).then(j => (j.responseData && j.responseData.translatedText) || '')
+  ];
+  async function translate(m) {
     const k = m.sl + '>' + m.tl + ':' + m.text;
     if (trCache.has(k)) return trCache.get(k);
-    const p = fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + encodeURIComponent(m.sl) + '&tl=' + encodeURIComponent(m.tl) + '&dt=t&dj=1&q=' + encodeURIComponent(m.text))
-      .then(r => r.json()).then(j => (j.sentences || []).map(s => s.trans || '').join(''));
+    const p = (async () => {
+      for (let i = 0; i < SOURCES.length; i++) {
+        try { const tx = String(await SOURCES[i](m) || '').trim(); if (tx) return tx; throw new Error('empty'); }
+        catch (e) { window.__satzoTrErr.push(i + ':' + (e && e.message || e)); }
+      }
+      throw new Error('all failed');
+    })();
     trCache.set(k, p); p.catch(() => trCache.delete(k)); return p;
   }
   window.chrome = {
