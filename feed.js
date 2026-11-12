@@ -11,7 +11,7 @@
   const XP_CLIP = 10, XP_FIRST = 10, XP_WORD = 2;
 
   // ---------- Dil ----------
-  const UI = (() => { let l = 'en'; try { l = chrome.i18n.getUILanguage() || navigator.language; } catch (e) {} l = String(l).slice(0, 2).toLowerCase(); return ['tr', 'en', 'de'].includes(l) ? l : 'en'; })();
+  let UI = (() => { let l = 'en'; try { l = chrome.i18n.getUILanguage() || navigator.language; } catch (e) {} l = String(l).slice(0, 2).toLowerCase(); return ['tr', 'en', 'de'].includes(l) ? l : 'en'; })();
   const T = {
     tr: {
       title: 'Kısa klipler, hızlı tekrarlar', lead: 'Her klip yarım dakika ile bir dakika arası. İzle, bilmediğin kelimeye dokun, kaydır. 5 klipte bir işaretlediğin kelimelerden kısa bir sınav gelir.',
@@ -28,6 +28,7 @@
       speedT: 'Hız: {0}', speedH: 'Oynatma hızı (− / + tuşları)', tapped: 'Bu klipte işaretlediklerin', none: 'Bu klipte kelime işaretlemedin.', resumeIn: 'Devam etmek için Boşluk', resumeTap: 'devam için buraya dokun', swipeT: 'yukarı kaydır', quizNow: 'Seans sonu: kelime sınavı',
       prep: 'Telefon için altyazıları hazırla', prepT: 'Altyazılar hazırlanıyor', prepL: '{0}/{1} video hazır · {2} alınamadı', prepDone: 'Hazır. data.json indirildi.', prepDl: 'data.json indir', prepStop: 'Durdur', tapVideo: 'Başlatmak için videoya dokun',
       replayS: 'Tekrar', addW: '＋ Kelimelerime ekle', removeW: 'Kelimelerimden çıkar', contW: 'Devam', knownW: 'Bu kelimeyi zaten öğrendin', addedW: '“{0}” eklendi', removedW: '“{0}” çıkarıldı',
+      tgtL: 'Çeviri dili',
       trBtn: 'Çeviri', back: 'Kelimelerim', ofGoal: '{0}/{1}', reviewDue: '{0} kelimenin tekrar zamanı geldi'
     },
     en: {
@@ -45,6 +46,7 @@
       speedT: 'Speed: {0}', speedH: 'Playback speed (− / + keys)', tapped: 'Words you marked in this clip', none: 'You didn’t mark any words in this clip.', resumeIn: 'Press Space to continue', resumeTap: 'tap here to continue', swipeT: 'swipe up', quizNow: 'End of session: word quiz',
       prep: 'Prepare subtitles for the phone', prepT: 'Preparing subtitles', prepL: '{0}/{1} videos ready · {2} failed', prepDone: 'Done. data.json downloaded.', prepDl: 'Download data.json', prepStop: 'Stop', tapVideo: 'Tap the video to start',
       replayS: 'Replay', addW: '＋ Add to my words', removeW: 'Remove from my words', contW: 'Continue', knownW: 'You already learned this word', addedW: '“{0}” added', removedW: '“{0}” removed',
+      tgtL: 'Translation language',
       trBtn: 'Translation', back: 'My words', ofGoal: '{0}/{1}', reviewDue: '{0} words are due for review'
     },
     de: {
@@ -62,6 +64,7 @@
       speedT: 'Tempo: {0}', speedH: 'Wiedergabetempo (Tasten − / +)', tapped: 'In diesem Clip markiert', none: 'In diesem Clip hast du keine Wörter markiert.', resumeIn: 'Leertaste zum Weitermachen', resumeTap: 'zum Weitermachen hier tippen', swipeT: 'nach oben wischen', quizNow: 'Ende der Runde: Wörterquiz',
       prep: 'Untertitel fürs Handy vorbereiten', prepT: 'Untertitel werden vorbereitet', prepL: '{0}/{1} Videos fertig · {2} fehlgeschlagen', prepDone: 'Fertig. data.json heruntergeladen.', prepDl: 'data.json herunterladen', prepStop: 'Stopp', tapVideo: 'Tippe auf das Video, um zu starten',
       replayS: 'Nochmal', addW: '＋ Zu meinen Wörtern', removeW: 'Aus meinen Wörtern entfernen', contW: 'Weiter', knownW: 'Dieses Wort kennst du schon', addedW: '„{0}“ hinzugefügt', removedW: '„{0}“ entfernt',
+      tgtL: 'Übersetzungssprache',
       trBtn: 'Übersetzung', back: 'Meine Wörter', ofGoal: '{0}/{1}', reviewDue: '{0} Wörter sind zur Wiederholung fällig'
     }
   };
@@ -140,6 +143,13 @@
   // ---------- Başlangıç ----------
   const levels = () => [...new Set(CAT.filter(c => c.lang === settings.srcLang).map(c => c.lvl).filter(Boolean))].sort();
   const pool = () => CAT.filter(c => c.lang === settings.srcLang && (!FD.lvl || c.lvl === FD.lvl));
+  const TGT = [['tr', 'Türkçe'], ['en', 'English'], ['uk', 'Українська'], ['ru', 'Русский'], ['ar', 'العربية'], ['fa', 'فارسی'], ['es', 'Español'], ['fr', 'Français'], ['pl', 'Polski'], ['it', 'Italiano']];
+  function setTgt(code) {
+    settings.tgtLang = code;
+    store.get('dySettings', r => { const s = (r && r.dySettings) || {}; s.tgtLang = code; store.set({ dySettings: s }); });
+    if (['tr', 'en'].includes(code)) UI = code;
+    document.documentElement.lang = UI; hud(); home();
+  }
   function home() {
     C.phase = 'home'; stopFrame();
     const lv = levels(), dw = dueWords().length;
@@ -147,6 +157,7 @@
       <h1>${esc(t('title'))}</h1><p>${esc(t('lead'))}</p>
       <div class="stat3"><div><b>${streak()}</b><span>${esc(t('streak'))}</span></div><div><b>${FD.today}</b><span>${esc(t('clips', '').trim())} · ${esc(t('today'))}</span></div><div><b>${Object.values(WD.items || {}).filter(w => w.lang === settings.srcLang && w.stage >= 0).length}</b><span>${esc(t('words'))}</span></div></div>
       ${lv.length > 1 ? `<div><div class="lab">${esc(t('level'))}</div><div class="seg" data-k="lvl">${['', ...lv].map(l => `<button type="button" data-v="${l}" aria-pressed="${(FD.lvl || '') === l}">${esc(l || t('all'))}</button>`).join('')}</div></div>` : ''}
+      ${HOST ? `<div><div class="lab">${esc(t('tgtL'))}</div><div class="seg" data-k="tgt">${TGT.map(([c, n]) => `<button type="button" data-v="${c}" aria-pressed="${settings.tgtLang === c}">${esc(n)}</button>`).join('')}</div></div>` : ''}
       <div><div class="lab">${esc(t('goal'))}</div><div class="seg" data-k="goal">${[5, 10, 20].map(g => `<button type="button" data-v="${g}" aria-pressed="${(FD.goal || 10) === g}">${esc(t('clips', g))}</button>`).join('')}</div></div>
       <p class="lab">${esc(t('clips', pool().length))}${dw ? ' · ' + esc(t('reviewDue', dw)) : ''}</p>
       <button type="button" class="btn main" data-a="go">${esc(FD.n ? t('cont') : t('start'))}<span class="kbd">Enter</span></button>
@@ -155,6 +166,7 @@
     const pb = card.querySelector('[data-a="prep"]'); if (pb) pb.addEventListener('click', prepStart);
     card.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
+      if (sg.dataset.k === 'tgt') { setTgt(b.dataset.v); return; }
       if (sg.dataset.k === 'lvl') FD.lvl = b.dataset.v; else FD.goal = +b.dataset.v;
       sg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       saveFeed(); hud();
@@ -590,6 +602,7 @@
     const s = (r && r.dySettings) || {};
     if (s.srcLang && !params.get('lang')) settings.srcLang = s.srcLang;
     if (s.tgtLang) settings.tgtLang = s.tgtLang;
+    if (HOST && s.tgtLang) { UI = ['tr', 'en'].includes(s.tgtLang) ? s.tgtLang : UI === 'de' ? 'en' : UI; document.documentElement.lang = UI; } // telefonda arayüz dili çeviri diline uyar
     settings.editor = !!s.editor; SUBS = (r && r.dySubs) || {};
     if (HOST) { const b = $('#toWords'); b.removeAttribute('href'); b.addEventListener('click', home); }
     WD = (r && r.dyWords) || { items: {} }; WD.items = WD.items || {};
