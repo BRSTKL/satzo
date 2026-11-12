@@ -27,6 +27,7 @@
       goalT: 'Bugünkü hedef tamam', goalL: '{0} klip, {1} puan. Serin {2} gün oldu.', goalMore: 'Biraz daha', goalStop: 'Bugünlük yeter',
       speedT: 'Hız: {0}', speedH: 'Oynatma hızı (− / + tuşları)', tapped: 'Bu klipte işaretlediklerin', none: 'Bu klipte kelime işaretlemedin.', resumeIn: 'Devam etmek için Boşluk', resumeTap: 'devam için buraya dokun', swipeT: 'yukarı kaydır', quizNow: 'Seans sonu: kelime sınavı',
       prep: 'Telefon için altyazıları hazırla', prepT: 'Altyazılar hazırlanıyor', prepL: '{0}/{1} video hazır · {2} alınamadı', prepDone: 'Hazır. data.json indirildi.', prepDl: 'data.json indir', prepStop: 'Durdur', tapVideo: 'Başlatmak için videoya dokun',
+      replayS: 'Tekrar', addW: '＋ Kelimelerime ekle', removeW: 'Kelimelerimden çıkar', contW: 'Devam', knownW: 'Bu kelimeyi zaten öğrendin', addedW: '“{0}” eklendi', removedW: '“{0}” çıkarıldı',
       trBtn: 'Çeviri', back: 'Kelimelerim', ofGoal: '{0}/{1}', reviewDue: '{0} kelimenin tekrar zamanı geldi'
     },
     en: {
@@ -43,6 +44,7 @@
       goalT: 'Today’s goal reached', goalL: '{0} clips, {1} points. Your streak is {2} days.', goalMore: 'A few more', goalStop: 'Enough for today',
       speedT: 'Speed: {0}', speedH: 'Playback speed (− / + keys)', tapped: 'Words you marked in this clip', none: 'You didn’t mark any words in this clip.', resumeIn: 'Press Space to continue', resumeTap: 'tap here to continue', swipeT: 'swipe up', quizNow: 'End of session: word quiz',
       prep: 'Prepare subtitles for the phone', prepT: 'Preparing subtitles', prepL: '{0}/{1} videos ready · {2} failed', prepDone: 'Done. data.json downloaded.', prepDl: 'Download data.json', prepStop: 'Stop', tapVideo: 'Tap the video to start',
+      replayS: 'Replay', addW: '＋ Add to my words', removeW: 'Remove from my words', contW: 'Continue', knownW: 'You already learned this word', addedW: '“{0}” added', removedW: '“{0}” removed',
       trBtn: 'Translation', back: 'My words', ofGoal: '{0}/{1}', reviewDue: '{0} words are due for review'
     },
     de: {
@@ -59,6 +61,7 @@
       goalT: 'Tagesziel geschafft', goalL: '{0} Clips, {1} Punkte. Deine Serie: {2} Tage.', goalMore: 'Noch ein paar', goalStop: 'Genug für heute',
       speedT: 'Tempo: {0}', speedH: 'Wiedergabetempo (Tasten − / +)', tapped: 'In diesem Clip markiert', none: 'In diesem Clip hast du keine Wörter markiert.', resumeIn: 'Leertaste zum Weitermachen', resumeTap: 'zum Weitermachen hier tippen', swipeT: 'nach oben wischen', quizNow: 'Ende der Runde: Wörterquiz',
       prep: 'Untertitel fürs Handy vorbereiten', prepT: 'Untertitel werden vorbereitet', prepL: '{0}/{1} Videos fertig · {2} fehlgeschlagen', prepDone: 'Fertig. data.json heruntergeladen.', prepDl: 'data.json herunterladen', prepStop: 'Stopp', tapVideo: 'Tippe auf das Video, um zu starten',
+      replayS: 'Nochmal', addW: '＋ Zu meinen Wörtern', removeW: 'Aus meinen Wörtern entfernen', contW: 'Weiter', knownW: 'Dieses Wort kennst du schon', addedW: '„{0}“ hinzugefügt', removedW: '„{0}“ entfernt',
       trBtn: 'Übersetzung', back: 'Meine Wörter', ofGoal: '{0}/{1}', reviewDue: '{0} Wörter sind zur Wiederholung fällig'
     }
   };
@@ -92,7 +95,14 @@
     });
   }
   // Kelimeler: panel ve Kelimelerim sayfasıyla aynı kayıt; yazmadan önce güncel hâli okunur
-  function updWords(fn) { store.get('dyWords', r => { WD = (r && r.dyWords) || { items: {} }; WD.items = WD.items || {}; fn(WD.items); store.set({ dyWords: WD }); }); }
+  // Sırayla: her güncelleme bir öncekinin yazması bittikten sonra okur (iki hızlı güncelleme birbirini ezmesin)
+  let wq = Promise.resolve();
+  function updWords(fn) {
+    wq = wq.then(() => new Promise(res => store.get('dyWords', r => {
+      try { WD = (r && r.dyWords) || { items: {} }; WD.items = WD.items || {}; fn(WD.items); } catch (e) {}
+      const done = () => res(); const p = store.set({ dyWords: WD }, done); if (p && p.then) p.then(done, done); else if (store.set.length < 2) done();
+    })));
+  }
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area !== 'local') return;
     if (ch.dyWords) WD = ch.dyWords.newValue || { items: {} };
@@ -181,6 +191,9 @@
   // ---------- Oynatıcı ----------
   // Oynatıcı bağlantısı. Eklentide: gömülü YouTube çerçevesi + içindeki Satzo betiği. Telefon (web) sürümünde: window.SatzoHost (tek, kalıcı oynatıcı).
   const HOST = window.SatzoHost || null;
+  // Dokunmatik ekran (telefon): kelimeye dokununca alttan anlam paneli açılır, kayıt ayrı bir düğmeyle yapılır
+  const TOUCH = !!HOST || (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);
+  if (TOUCH) document.documentElement.classList.add('touch');
   function stopFrame() { C.frame = null; C.cues = []; C.live = false; if (HOST) HOST.stop(); }
   const post = m => { try { if (HOST) HOST.post(m); else C.frame && C.frame.contentWindow.postMessage(m, 'https://www.youtube-nocookie.com'); } catch (e) {} };
   function loadClip(clip, from) {
@@ -318,7 +331,7 @@
     const card = C.card; if (!card) return;
     const cap = card.querySelector('.cap'), dock = card.querySelector('.dock');
     cap.innerHTML = `<p class="prevline" hidden></p><p class="line"></p><p class="gl" hidden></p><p class="tr" hidden></p>`;
-    dock.innerHTML = `<div class="words"></div><div class="row"><button type="button" class="btn ico" data-a="pp" aria-label="Play / Pause" title="Play / Pause (Space)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5v13l8.5-6.5z"></path><rect x="14" y="5" width="3" height="14" rx="1"></rect><rect x="19" y="5" width="3" height="14" rx="1"></rect></svg></button><button type="button" class="btn" data-a="speed" title="${esc(t('speedH'))}">${speedLabel()}</button><button type="button" class="btn" data-a="replay">↺ ${esc(t('replay'))}</button><button type="button" class="btn ghost" data-a="tr">${esc(t('trBtn'))}</button><span style="flex:1"></span><button type="button" class="btn ghost" data-a="skip">${esc(t('skip'))} ↓</button></div><div class="lab">${esc(t('tapHint'))}</div>`;
+    dock.innerHTML = `<div class="words"></div><div class="row"><button type="button" class="btn ico" data-a="pp" aria-label="Play / Pause" title="Play / Pause (Space)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5v13l8.5-6.5z"></path><rect x="14" y="5" width="3" height="14" rx="1"></rect><rect x="19" y="5" width="3" height="14" rx="1"></rect></svg></button><button type="button" class="btn" data-a="speed" title="${esc(t('speedH'))}">${speedLabel()}</button><button type="button" class="btn" data-a="replay" aria-label="${esc(t('replay'))}">↺ ${esc(TOUCH ? t('replayS') : t('replay'))}</button><button type="button" class="btn ghost" data-a="tr">${esc(t('trBtn'))}</button><span style="flex:1"></span><button type="button" class="btn ghost" data-a="skip">${esc(t('skip'))} ↓</button></div><div class="lab">${esc(t('tapHint'))}</div>`;
     C.cur = -1; onTime(true); renderChips();
   }
   function onTime(force) {
@@ -345,6 +358,7 @@
   }
   function onEnd() {
     if (C.phase !== 'watch') return;
+    closeSheet(false); C.sheetPaused = false;
     const endSec = C.cues[C.b].end, last = C.cues[C.cues.length - 1].end;
     FD.seen[C.clip.vid] = last - endSec < 8 ? -1 : endSec; saveFeed();
     finishClip();
@@ -362,14 +376,14 @@
     const old = WD.items[id];
     if (old && old.stage >= 0) { tapPause(c, w, old.tr || ''); return; } // zaten öğrenilmiş: sadece anlamını göster
     C.marked.add(key); C.newW++;
-    tapPause(c, w, null);
+    if (!TOUCH) tapPause(c, w, null);
     const tm = wordTimes(c), ws = c.wt ? c.wt[wi] : tm[wi], we = c.wt && c.wt[wi + 1] != null ? c.wt[wi + 1] : (tm[wi + 1] != null ? tm[wi + 1] : Math.min(c.end, ws + 0.8));
     const it = { id, w, key, lang: settings.srcLang, tr: null, ctx: c.text, wt: c.wt ? c.wt.slice() : null, vid: C.clip.vid,
       url: 'https://www.youtube.com/watch?v=' + C.clip.vid + '&t=' + Math.floor(c.start) + 's', title: C.clip.title || '',
       start: c.start, end: c.end, ws: c.wt ? ws : null, we: c.wt ? we : null, stage: -1, due: 0, added: Date.now(), feed: true };
     updWords(items => { items[id] = Object.assign(items[id] || {}, it); });
     onTime(true); renderChips();
-    translate(w, c.text).then(tr => { updWords(items => { if (items[id]) items[id].tr = tr || ''; }); setTimeout(renderChips, 60); showGloss(w, tr); });
+    translate(w, c.text).then(tr => { updWords(items => { if (items[id]) items[id].tr = tr || ''; }); setTimeout(renderChips, 60); if (!TOUCH) showGloss(w, tr); else sheetTr(key, tr); });
     try { chrome.runtime.sendMessage({ type: 'lemma', w, sl: settings.srcLang, tl: settings.tgtLang }, r => { if (chrome.runtime.lastError || !r || !r.ok) return; updWords(items => { const x = items[id]; if (x) Object.assign(x, { base: r.base || x.w, pos: r.pos || '', art: r.art || '', pl: r.pl || '', btr: r.btr || '' }); }); }); } catch (e) {}
   }
   // Kelimeye dokununca video durur, anlam altta görünür; 3,5 sn içinde başka bir şey yapılmazsa video devam eder
@@ -398,6 +412,41 @@
     setGlossHint(C.tapPaused || C.paused ? t(HOST ? 'resumeTap' : 'resumeIn') : '');
   }
   function setGlossHint(m) { const h = C.card && C.card.querySelector('.cap .gl .glh'); if (h) h.textContent = m ? ' · ' + m : ''; }
+  // ---------- Telefon: kelime paneli ----------
+  // Dokun → video durur, panel alttan açılır (kelime, anlam, cümle). "Kelimelerime ekle" ile kaydedilir; "Devam" ya da boşluğa dokunmak videoyu sürdürür.
+  function openSheet(ci, wi) {
+    const c = C.cues[ci]; if (!c) return;
+    const w = bare(words(c.text)[wi]); if (!w) return;
+    const key = w.toLowerCase(), id = settings.srcLang + ':' + key, old = WD.items[id];
+    clearTimeout(C.resumeT);
+    if (!C.paused) { pauseVideo(); C.sheetPaused = true; }
+    closeSheet(false);
+    const known = old && old.stage >= 0, marked = C.marked.has(key);
+    C.sheet = { ci, wi, key, w };
+    const ctx = esc(c.text).replace(new RegExp('(^|[^\\p{L}])(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}])', 'u'), '$1<mark>$2</mark>');
+    const bg = document.createElement('div'); bg.className = 'sheet-bg';
+    bg.innerHTML = `<div class="sheet" role="dialog" aria-label="${esc(w)}"><div class="sh-grab"></div>
+      <div class="sh-w" lang="${settings.srcLang}">${esc(w)}</div><div class="sh-tr">${old && old.tr ? esc(old.tr) : '<span class="dots">…</span>'}</div>
+      <p class="sh-ctx" lang="${settings.srcLang}">${ctx}</p>
+      <div class="row">${known ? `<span class="lab">✓ ${esc(t('knownW'))}</span>` : `<button type="button" class="btn main" data-a="shadd">${esc(marked ? t('removeW') : t('addW'))}</button>`}<button type="button" class="btn" data-a="shgo">${esc(t('contW'))} ▶</button></div></div>`;
+    C.card.appendChild(bg);
+    requestAnimationFrame(() => bg.classList.add('on'));
+    if (!(old && old.tr)) translate(w, c.text).then(tr => sheetTr(key, tr));
+  }
+  function sheetTr(key, tr) { if (!C.sheet || C.sheet.key !== key || !C.card) return; const el = C.card.querySelector('.sh-tr'); if (el) el.textContent = tr || '?'; }
+  function sheetAdd() {
+    const S2 = C.sheet; if (!S2) return;
+    const was = C.marked.has(S2.key);
+    toggleWord(S2.ci, S2.wi);
+    toast(was ? t('removedW', S2.w) : t('addedW', S2.w));
+    closeSheet(true);
+  }
+  function closeSheet(resume) {
+    const bg = C.card && C.card.querySelector('.sheet-bg');
+    if (bg) { bg.classList.remove('on'); setTimeout(() => bg.remove(), 220); }
+    C.sheet = null;
+    if (resume && C.sheetPaused) { C.sheetPaused = false; resumeVideo(); }
+  }
   const trCache = new Map();
   function translate(text, ctx) {
     const k = settings.tgtLang + ':' + text + '|' + (ctx || '');
@@ -491,13 +540,16 @@
 
   // ---------- Etkileşim ----------
   document.addEventListener('click', e => {
-    const w = e.target.closest('.w'); if (w && C.phase === 'watch') { toggleWord(+w.dataset.ci, +w.dataset.wi); return; }
+    if (e.target.closest('.sheet-bg') && !e.target.closest('.sheet')) { closeSheet(true); return; }
+    const w = e.target.closest('.w'); if (w && C.phase === 'watch') { if (TOUCH) openSheet(+w.dataset.ci, +w.dataset.wi); else toggleWord(+w.dataset.ci, +w.dataset.wi); return; }
     if (e.target.closest('.cap .gl') && C.phase === 'watch' && C.paused) { resumeVideo(); return; } // anlam kutusuna dokun: devam
     const b = e.target.closest('[data-a]'); if (!b || !C.card || !C.card.contains(b)) return;
     const a = b.dataset.a;
     if (a === 'replay' && C.phase === 'watch') { const k = Math.max(C.a, C.cur); post({ satzo: 'fplay', from: C.cues[k].start - 0.2, to: C.cues[C.b].end + 0.45, rate: speed() }); }
     else if (a === 'pp' && C.phase === 'watch') togglePlay();
     else if (a === 'speed') setSpeed(null);
+    else if (a === 'shadd') sheetAdd();
+    else if (a === 'shgo') closeSheet(true);
     else if (a === 'tr') { C.trOn = !C.trOn; onTime(true); }
     else if (a === 'skip') skip();
     else if (a === 'next') nextClip();
@@ -511,7 +563,7 @@
   function skip() {
     if (C.phase === 'watch' || C.phase === 'load') {
       if (C.clip && C.phase !== 'load' && C.cues.length) { const endSec = C.cues[C.b].end, last = C.cues[C.cues.length - 1].end; FD.seen[C.clip.vid] = last - endSec < 8 ? -1 : endSec; saveFeed(); }
-      clearTimeout(C.resumeT); post({ satzo: 'fpause' }); C.phase = 'skip'; nextClip();
+      clearTimeout(C.resumeT); closeSheet(false); C.sheetPaused = false; post({ satzo: 'fpause' }); C.phase = 'skip'; nextClip();
     } else if (C.phase === 'done') nextClip();
   }
   const typing = () => { const a = document.activeElement; return a && /INPUT|TEXTAREA/.test(a.tagName); };
@@ -530,7 +582,7 @@
     wheelLock = Date.now() + 900; skip();
   }, { passive: true });
   let ty = null;
-  document.addEventListener('touchstart', e => { ty = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchstart', e => { ty = C.sheet || e.target.closest('.btn, .w, .sheet, input') ? null : e.touches[0].clientY; }, { passive: true });
   document.addEventListener('touchend', e => { if (ty == null) return; const dy = e.changedTouches[0].clientY - ty; ty = null; if (dy < -70 && ['watch', 'done'].includes(C.phase)) skip(); }, { passive: true });
 
   // ---------- Başlat ----------

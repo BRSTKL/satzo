@@ -125,3 +125,33 @@ a { color: var(--blue); }
 .cap .words { justify-content: center; }
 .btn.ico { display: grid; place-items: center; padding: 9px 11px; }
 .cap .gl { cursor: pointer; }
+
+/* ---------- Dokunmatik ekran (telefon) ---------- */
+html.touch body { touch-action: manipulation; }
+html.touch .cap { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* Kelimeler parmak için daha büyük hedef: araları dokunulabilir, satırlar daha açık */
+html.touch .cap .line { line-height: 1.7; word-spacing: -2px; }
+html.touch .cap .line .w { display: inline-block; padding: 1px 4px; margin: 1px 0; border-radius: 8px; line-height: 1.45; }
+html.touch .cap .prevline .w { display: inline-block; padding: 3px 2px; }
+html.touch .w:active { background: rgba(108, 125, 242, .35); color: #fff; }
+html.touch .cap .line .w:hover, html.touch .cap .prevline .w:hover { background: none; }
+html.touch .w.mk:active { background: rgba(242, 193, 78, .55); }
+html.touch .dock .row { flex-wrap: nowrap; gap: 6px; }
+html.touch .dock .row .btn { padding: 11px 12px; font-size: 14px; white-space: nowrap; }
+html.touch .dock .row > span[style] { flex: 1 1 0 !important; min-width: 0; }
+
+/* Kelime paneli: alttan açılır */
+.sheet-bg { position: absolute; inset: 0; z-index: 6; background: rgba(5, 8, 22, 0); transition: background .2s; display: flex; align-items: flex-end; }
+.sheet-bg.on { background: rgba(5, 8, 22, .45); }
+.sheet { width: 100%; background: var(--card2); border-radius: 22px 22px 0 0; padding: 10px 20px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px;
+  transform: translateY(100%); transition: transform .22s cubic-bezier(.2, .8, .2, 1); box-shadow: 0 -12px 40px rgba(0, 0, 0, .4); }
+.sheet-bg.on .sheet { transform: none; }
+.sh-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; margin-bottom: 6px; }
+.sh-w { font-family: var(--serif); font-size: 30px; line-height: 1.2; }
+.sh-tr { font-size: 19px; color: var(--mark); min-height: 26px; }
+.sh-ctx { font-family: var(--serif); font-size: 15px; color: var(--mute); margin: 4px 0 8px; line-height: 1.5; }
+.sh-ctx mark { background: rgba(242, 193, 78, .3); color: var(--text); border-radius: 4px; padding: 0 2px; }
+.sheet .row .btn { padding: 13px 14px; font-size: 15px; }
+.sheet .row .btn.main { flex: 1; }
+.dots { animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }

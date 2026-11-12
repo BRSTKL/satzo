@@ -19,8 +19,8 @@
     i18n: { getUILanguage: () => navigator.language || 'en' },
     storage: {
       local: {
-        get(keys, cb) { const out = {}; [].concat(keys).forEach(k => { const v = read(k); if (v !== undefined) out[k] = v; }); setTimeout(() => cb(out), 0); },
-        set(obj) { Object.keys(obj).forEach(k => { try { localStorage.setItem(LS + k, JSON.stringify(obj[k])); } catch (e) {} }); }
+        get(keys, cb) { setTimeout(() => { const out = {}; [].concat(keys).forEach(k => { const v = read(k); if (v !== undefined) out[k] = v; }); cb(out); }, 0); },
+        set(obj, cb) { Object.keys(obj).forEach(k => { try { localStorage.setItem(LS + k, JSON.stringify(obj[k])); } catch (e) {} }); if (cb) setTimeout(cb, 0); }
       },
       onChanged: { addListener() {} }
     },
