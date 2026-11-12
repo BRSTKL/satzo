@@ -1,0 +1,17 @@
+/* Satzo — telefon (web uygulaması) eklemeleri. Temel görünüm feed.css ile eklentideki akış sayfasının aynısı. */
+html, body { height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+.bar { padding-top: max(12px, env(safe-area-inset-top)); }
+.brand { cursor: pointer; }
+.dock { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.hero { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+/* Tek, kalıcı YouTube oynatıcısı: kartın video yuvasının tam üstünde durur, kartlar altından kayar */
+#ytwrap { position: absolute; top: 4px; left: 12px; right: 12px; aspect-ratio: 16 / 9; z-index: 4; background: #000; border-radius: 22px 22px 0 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity .2s; }
+#ytwrap.on { opacity: 1; pointer-events: auto; }
+#ytwrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+@media (hover: none) { .kbd { display: none; } .btn { padding: 11px 14px; } .w { padding: 2px 1px; } }
+@media (max-width: 520px) {
+  .card { inset: 0; border-radius: 0; box-shadow: none; }
+  #ytwrap { top: 0; left: 0; right: 0; border-radius: 0; }
+  .cap .line { font-size: 23px; }
+  .hero h1 { font-size: 30px; }
+}
